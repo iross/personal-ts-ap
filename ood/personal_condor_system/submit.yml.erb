@@ -28,6 +28,11 @@ script:
     - "<%= memory.to_i + 2 %>G"
     - "-t"
     - "<%= time_limit %>"
+<% if gpus.to_i > 0 %>
+    - "--gres"
+    # gpu_type is only meaningful with a GPU count; keep just characters valid in a GRES name.
+    - "gpu:<%= "#{gpu_type.to_s.strip.gsub(/[^A-Za-z0-9_.-]/, '')}:" unless gpu_type.to_s.strip.empty? %><%= gpus.to_i %>"
+<% end %>
 <% unless busy_nodes.empty? %>
     - "--exclude"
     - "<%= busy_nodes %>"

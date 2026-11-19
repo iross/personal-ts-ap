@@ -4,6 +4,8 @@ form:
   - slurm_partition
   - cpus
   - memory
+  - gpus
+  - gpu_type
   - time_limit
   - base_dir
 
@@ -26,6 +28,22 @@ attributes:
     help: >-
       Resources for the Execution Point that runs your HTCondor jobs. The system runs on a single node;
       the Access Point's own 1 CPU and 2 GB of memory are added on top of this request.
+  gpus:
+    widget: number_field
+    label: "GPU count"
+    value: 0
+    min: 0
+    help: >-
+      Number of GPUs for the Execution Point that runs your HTCondor jobs. Ensure that you select a
+      partition that contains GPU GRES.
+  gpu_type:
+    widget: text_field
+    label: "GPU type"
+    value: ""
+    required: false
+    help: >-
+      Optional. The GRES type name as configured in Slurm (e.g. a100), used as --gres gpu:TYPE:COUNT.
+      Leave blank to accept any type. Ignored when GPU count is 0.
   time_limit:
     widget: text_field
     label: "Time limit"
