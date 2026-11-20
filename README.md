@@ -169,8 +169,13 @@ Use the condor tools on the AP host:
 `condor_status` lists the EPs connected to your AP. Every job is routed to `default-annex`
 automatically.
 
-**Test job.** The AP writes a ready-to-submit job to `~/personal-htcondor/test-job/` the first
-time it starts. It matches EPs of either architecture and reports where it ran:
+**Test jobs.** At startup the AP writes ready-to-submit test jobs to
+`~/personal-htcondor/test-job/` (any that are missing; your edits are kept). They match EPs of
+either architecture:
+
+- `hello.sub` reports where it ran.
+- `gpu.sub` requests one GPU and reports which one HTCondor assigned (`Assigned GPUs`,
+  `CUDA_VISIBLE_DEVICES`) next to `nvidia-smi`'s list of the machine's GPUs.
 
 ```
 cd ~/personal-htcondor/test-job && condor_submit hello.sub       # native AP

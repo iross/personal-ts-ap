@@ -179,19 +179,32 @@ if ! prepare_annex; then
     echo "WARNING: could not prepare annex '$ANNEX_NAME'; the AP is still running"
 fi
 
-# --- Test job ----------------------------------------------------------------
-# A ready-to-submit job for checking that EPs run work. Written only if absent,
-# under ~/personal-htcondor so the Docker AP can see it too.
+# --- Test jobs ---------------------------------------------------------------
+# Ready-to-submit jobs for checking that EPs run work, under ~/personal-htcondor
+# so the Docker AP can see them too. Each file is written only if it is absent,
+# so new test jobs appear on the next start and local edits are kept.
 TEST_JOB_DIR="$HOME/personal-htcondor/test-job"
-if [ ! -e "$TEST_JOB_DIR" ]; then
-    mkdir -p "$TEST_JOB_DIR"
-    cat >"$TEST_JOB_DIR/hello.sh" <<'EOF'
+mkdir -p "$TEST_JOB_DIR"
+
+# write_test_file <name> <mode>: write stdin to $TEST_JOB_DIR/<name> if absent.
+write_test_file() {
+    local path="$TEST_JOB_DIR/$1"
+    if [ -e "$path" ]; then
+        cat >/dev/null
+        return 0
+    fi
+    cat >"$path"
+    chmod "$2" "$path"
+    echo "==> Wrote test job file $path"
+}
+
+write_test_file hello.sh 755 <<'EOF'
 #!/bin/bash
 echo "Hello from $(hostname) ($(uname -m))"
 sleep 30
 EOF
-    chmod +x "$TEST_JOB_DIR/hello.sh"
-    cat >"$TEST_JOB_DIR/hello.sub" <<EOF
+
+write_test_file hello.sub 644 <<EOF
 # Test job for this AP's annex EPs. Submit with: condor_submit hello.sub
 executable              = hello.sh
 log                     = hello.log
@@ -210,8 +223,40 @@ requirements            = (Arch == "X86_64" || Arch == "aarch64")
 
 queue
 EOF
-    echo "==> Wrote a test job to $TEST_JOB_DIR (submit hello.sub there)"
+
+write_test_file gpu.sh 755 <<'EOF'
+#!/bin/bash
+# Report which GPU(s) HTCondor assigned to this job, and show them working.
+echo "Host: $(hostname) ($(uname -m))"
+echo "Assigned GPUs: ${_CONDOR_AssignedGPUs:-<none>}"
+echo "CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES:-<unset>}"
+if ! command -v nvidia-smi >/dev/null; then
+    echo "nvidia-smi not found on this EP" >&2
+    exit 1
 fi
+# nvidia-smi ignores CUDA_VISIBLE_DEVICES and lists every GPU in the machine;
+# the assigned one(s) are those whose UUID starts with the IDs above.
+nvidia-smi --query-gpu=index,uuid,name,memory.total,utilization.gpu --format=csv
+EOF
+
+write_test_file gpu.sub 644 <<EOF
+# GPU test job for this AP's annex EPs. Submit with: condor_submit gpu.sub
+executable              = gpu.sh
+log                     = gpu.log
+output                  = gpu.out
+error                   = gpu.err
+should_transfer_files   = Yes
+when_to_transfer_output = ON_EXIT
+request_cpus            = 1
+request_memory          = 1G
+request_disk            = 1G
+request_gpus            = 1
+
++TargetAnnexName        = "$ANNEX_NAME"
+requirements            = (Arch == "X86_64" || Arch == "aarch64")
+
+queue
+EOF
 
 echo "==> To interact with this AP, source the condor env file at $CONDOR_DIR/condor.sh:"
 echo "    '. $CONDOR_DIR/condor.sh'"
