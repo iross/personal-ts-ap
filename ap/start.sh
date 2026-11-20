@@ -69,33 +69,24 @@ echo "==> Updating shell environment with AP install"
 . "$CONDOR_DIR/condor.sh"
 
 # --- Run the AP ----------------------------------------------------------
-# Pin NETWORK_HOSTNAME, removing any previous pin first so a resumed AP
-# doesn't copy the old instance's hostname.
-rm -f "$CONDOR_DIR/local/config.d/13-ap-hostname.conf"
-AP_FULL_HOSTNAME="$(condor_config_val FULL_HOSTNAME)"
-echo "==> Pinning hostname to $AP_FULL_HOSTNAME via NETWORK_HOSTNAME"
-echo "NETWORK_HOSTNAME = $AP_FULL_HOSTNAME" >"$CONDOR_DIR/local/config.d/13-ap-hostname.conf"
+# The AP listens on loopback only; expose it to the tailnet. Under
+# ap/docker.sh, the host already did this before starting the container.
+if [ "${PERSONAL_AP_IN_CONTAINER:-0}" != "1" ]; then
+    "$(dirname "${BASH_SOURCE[0]}")/tailnet.sh"
+fi
 
 echo "==> Starting HTCondor AP"
 "$CONDOR_DIR/sbin/condor_master" -f &
 MASTER_PID=$!
 
-# --- Enable IDToken Authentication --------------------------------------
-# Wait up to 10 seconds for the AP to provision its pool password.
+# --- Mint the annex EP token ---------------------------------------------
+# Wait up to 10 seconds for the AP to provision its signing key.
 POOL_FILE="$CONDOR_DIR/local/passwords.d/POOL"
 WAITED=0
 while [ ! -f "$POOL_FILE" ] && [ "$WAITED" -lt 10 ]; do
     sleep 1
     WAITED=$((WAITED + 1))
 done
-
-# Issue a sample IDToken with schedd READ/WRITE authorization into the
-# AP's tokens.d directory.
-echo "==> Generating IDToken for schedd access"
-TOKEN_NAME="testing"
-IDENTITY="$(whoami)@$(condor_config_val UID_DOMAIN)"
-condor_token_create -identity "$IDENTITY" -authz READ -authz WRITE -token "$TOKEN_NAME"
-echo "    Generated sample IDToken for $IDENTITY at $CONDOR_DIR/local/tokens.d/$TOKEN_NAME"
 
 # Mint the annex EPs' token here, on the AP. The bundled annex.token in the
 # tarball has the wrong identity for the annex START policy; this
@@ -121,13 +112,11 @@ else
 fi
 
 # --- Prepare the default annex ------------------------------------------
-# Build the EP tarball for ep/annex-ep.sub at a well-known path (reachable
-# via ~/personal-htcondor/current-ap), authenticating to the AP with the IDToken above.
-# Failures here are logged but non-fatal: the AP keeps running regardless.
+# Build the annex tarball for EPs at a well-known path (reachable via
+# ~/personal-htcondor/current-ap). Failures here are logged but non-fatal:
+# the AP keeps running regardless.
 ANNEX_NAME="default-annex"
 ANNEX_TARBALL="$CONDOR_DIR/annex-$ANNEX_NAME.tar"
-
-export _condor_SEC_CLIENT_AUTHENTICATION_METHODS=IDTOKENS
 
 # An annex "exists in the schedd" if any job in the queue has the
 # hpc_annex_name attribute set to $ANNEX_NAME. This is a raw queue check; `htcondor annex
@@ -160,6 +149,9 @@ prepare_annex() {
     else
         verb=create
     fi
+    # The CLI won't overwrite an existing tarball. One left over without its
+    # annex job in the queue refers to a request that no longer exists.
+    rm -f "$ANNEX_TARBALL"
 
     echo "==> Running 'htcondor annex $verb $ANNEX_NAME'"
     # The CLI writes annex-<name>.tar into its working directory.

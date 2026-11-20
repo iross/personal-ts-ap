@@ -143,15 +143,11 @@ ANNEX_TOKEN_DOMAIN = condor-$SUFFIX
 SCHEDD_NAME = condor-$SUFFIX@condor-$SUFFIX
 EOF
 
-# Alias `condor_status` to run against the AP's annex collector
-cat >>"$CONDOR_DIR/condor.sh" <<EOF
-alias condor_status="condor_status -pool \$(condor_config_val NETWORK_HOSTNAME):9618?sock=ap_collector"
-EOF
-
 # --- Configure HTCondor for Annex Mode --------------------------------------
-# Enable the optional Annex feature.
-echo "==> Installing Annex configuration"
-cp "$REPO_DIR/11-ap-annex.conf" "$CONDOR_DIR/local/config.d/"
+# Enable the optional Annex feature, and address the AP as 127.0.0.1:9618 on
+# loopback only (see 20-ap-tailnet.conf and ap/tailnet.sh).
+echo "==> Installing Annex and tailnet configuration"
+cp "$REPO_DIR/11-ap-annex.conf" "$REPO_DIR/20-ap-tailnet.conf" "$CONDOR_DIR/local/config.d/"
 
 # Force IDToken auth for the EP-facing daemons (an EP on the AP's own host
 # could otherwise authenticate via FS with the wrong identity), and grant its

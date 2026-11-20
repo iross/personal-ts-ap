@@ -69,8 +69,9 @@ cmd_start() {
     local condor_dir
     condor_dir="$(current_condor_dir)"
     container_running && die "container '$CONTAINER' is already running"
+    "$AP_DIR/tailnet.sh"
     build_image
-    docker run --rm --init --name "$CONTAINER" "${RUN_ARGS[@]}" "$IMAGE" \
+    docker run --rm --init --name "$CONTAINER" -e PERSONAL_AP_IN_CONTAINER=1 "${RUN_ARGS[@]}" "$IMAGE" \
         "$AP_DIR/start.sh" --condor-dir "$condor_dir"
 }
 
@@ -84,7 +85,7 @@ cmd_shell() {
     else
         # shellcheck disable=SC2016 # expanded by the container's bash
         docker exec -i "${tty[@]}" "$CONTAINER" \
-            bash -O expand_aliases -c '. "$1/condor.sh"; shift; eval "$(printf "%q " "$@")"' \
+            bash -c '. "$1/condor.sh"; shift; exec "$@"' \
             _ "$condor_dir" "$@"
     fi
 }

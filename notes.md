@@ -10,6 +10,21 @@ The EP-to-AP transport (local forwarder, `TCP_FORWARDING_HOST`, CCB) is describe
 
 # AP Configuration
 
+## Networking
+
+Every party addresses the AP as `127.0.0.1:9618` (`20-ap-tailnet.conf`): on the AP host that is
+the AP itself, and on an EP it is the EP's local forwarder to the tailnet. The AP listens on
+loopback only (`NETWORK_INTERFACE = 127.0.0.1`, `BIND_ALL_INTERFACES = false`), and
+`ap/tailnet.sh` runs `tailscale serve --tcp 9618 tcp://127.0.0.1:9618` so the tailnet, and nothing
+else, can reach it. The LAN cannot connect to port 9618.
+
+`tailscale serve` needs your user to be allowed to manage Tailscale; run once on the AP host:
+`sudo tailscale set --operator=$USER`. The serve config persists in tailscaled.
+
+`COLLECTOR_HOST` points at the annex collector (`ap_collector`), so `condor_status` and friends
+work without `-pool`. `20-ap-tailnet.conf` must sort after `11-ap-annex.conf`, which sets its own
+`ANNEX_COLLECTOR`.
+
 ## Daemon Name Pinning
 
 By default, AP daemon names are derived from the `FULL_HOSTNAME` of the host the AP runs on. To keep
@@ -38,6 +53,9 @@ and CCB registration, since it's not allowed for this subject by default:
 AP_COLLECTOR.ALLOW_DAEMON = $(ALLOW_DAEMON), ...
 SCHEDD.ALLOW_DAEMON = $(ALLOW_DAEMON), ...
 ```
+
+Condor tools run on the AP host as the AP's owner still authenticate by FS, so no separate
+token for local tools is needed.
 
 # EP Configuration
 
