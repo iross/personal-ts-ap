@@ -54,7 +54,9 @@ def main(argv):
     listen_port, target_host, target_port = int(argv[1]), argv[2], argv[3]
     nc_cmd = argv[4:] + ["nc", target_host, target_port]
 
-    loop = asyncio.get_event_loop()
+    # Python 3.14 no longer creates a loop implicitly in get_event_loop().
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
         server = loop.run_until_complete(
             asyncio.start_server(make_handler(nc_cmd), "127.0.0.1", listen_port)
