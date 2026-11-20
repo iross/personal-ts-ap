@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-20 17:36'
-updated_date: '2026-11-20 17:40'
+updated_date: '2026-11-20 18:45'
 labels:
   - ep
 dependencies: []
@@ -39,6 +39,8 @@ Let the person running an EP add HTCondor config for that host without changing 
 
 <!-- SECTION:NOTES:BEGIN -->
 Implemented run-ep.sh --config (appended to the annex's 20-annex-pilot-instance after annex-setup.sh, which annex-job-setup.sh copies into the EP's config.d) and passed it through ep/docker-ep.sh (mounted read-only at /run/ep-config.conf; empty-array expansion written for macOS bash 3.2). Tested with a stub bundle (no AP): native in a Linux container and via docker-ep.sh on macOS; the file lands after the annex's own settings; a bad path fails before any download. Not yet verified: HTCondor actually offlining the GPU on node17 (check DetectedGPUs vs AssignedGPUs there). Found and fixed while testing: tailscaled's socket lived in the work dir, and a long bundle path exceeded the ~108-byte Unix socket limit ('bind: invalid argument'); it now lives in a mktemp dir under /tmp, removed on exit.
+
+2026-11-20 on node17 (with the AlmaLinux build workaround): DetectedGPUs reports short IDs (GPU-f34a1a72, GPU-16f24d5e, GPU-0c932e23, GPU-a325ade4), so OFFLINE_MACHINE_RESOURCE_GPUs = GPU-a325ade4 is the right form. gpu.sub (request_gpus = 1) was assigned GPU-f34a1a72. Remaining to confirm exclusion: condor_status -af Name GPUs AssignedGPUs shows GPUs = 3 without GPU-a325ade4, or a request_gpus = 3 job gets the other three.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
