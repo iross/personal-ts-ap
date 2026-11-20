@@ -15,12 +15,17 @@ CONTAINER="htc-ep-$SHORT_HOST"
 
 usage() {
     cat <<EOF
-Usage: TS_AUTHKEY=file:<path> $(basename "${BASH_SOURCE[0]}")
+Usage: TS_AUTHKEY=file:<path> $(basename "${BASH_SOURCE[0]}") [--config <file>]
 
 Run an EP for this bundle's AP in a Docker container named '$CONTAINER',
 using this host's resources. Same as run-ep.sh otherwise: runs in the
 foreground until idle for the annex's idle time, Ctrl-C, or
 'docker stop -t 90 $CONTAINER'.
+
+Options:
+  --config <file>  HTCondor configuration to add to this EP (see run-ep.sh
+                   --help).
+  --help           Print this help message and exit.
 
 Environment:
   TS_AUTHKEY   Tailscale auth key, as "file:<path>" (recommended) or the key
@@ -33,17 +38,26 @@ die() {
     exit 1
 }
 
-case "${1:-}" in
-    -h | --help)
-        usage
-        exit 0
-        ;;
-    "") ;;
-    *)
-        usage >&2
-        exit 1
-        ;;
-esac
+CONFIG_ARGS=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        --config)
+            [ $# -ge 2 ] || die "--config requires a file argument"
+            [ -f "$2" ] && [ -r "$2" ] || die "--config file not found or not readable: $2"
+            CONFIG_FILE="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
+            CONFIG_ARGS=(--config /run/ep-config.conf)
+            shift 2
+            ;;
+        *)
+            usage >&2
+            exit 1
+            ;;
+    esac
+done
 
 command -v docker >/dev/null || die "docker is not installed or not on PATH"
 [ -n "${TS_AUTHKEY:-}" ] ||
@@ -88,4 +102,5 @@ exec docker run --rm --init --name "$CONTAINER" --hostname "$SHORT_HOST" \
     -v "$HOME/.cache/htc-ep:$HOME/.cache/htc-ep" \
     -v "$HOME/.hpc-annex:$HOME/.hpc-annex" \
     "${KEY_ARGS[@]}" \
-    "$IMAGE" "$BUNDLE_DIR/run-ep.sh"
+    ${CONFIG_FILE:+-v "$CONFIG_FILE:/run/ep-config.conf:ro"} \
+    "$IMAGE" "$BUNDLE_DIR/run-ep.sh" ${CONFIG_ARGS[@]+"${CONFIG_ARGS[@]}"}

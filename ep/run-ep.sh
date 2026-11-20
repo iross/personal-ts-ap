@@ -19,9 +19,16 @@ declare -A TAILSCALE_SHA256=(
 
 usage() {
     cat <<EOF
-Usage: TS_AUTHKEY=<key> $(basename "${BASH_SOURCE[0]}")
+Usage: TS_AUTHKEY=<key> $(basename "${BASH_SOURCE[0]}") [--config <file>]
 
 Run an annex EP for the AP this bundle was made for, using this whole host.
+
+Options:
+  --config <file>  HTCondor configuration to add to this EP, for settings
+                   specific to this host, e.g.
+                   OFFLINE_MACHINE_RESOURCE_GPUs = GPU-a325ade4
+                   to keep a GPU out of every slot.
+  --help           Print this help message and exit.
 
 Environment:
   TS_AUTHKEY   Tailscale auth key for joining the tailnet (an ephemeral,
@@ -121,22 +128,29 @@ cleanup() {
         kill "$TAILSCALED_PID" 2>/dev/null || true
     fi
     rm -f "${AUTHKEY_FILE:-}"
+    if [ -n "${SOCKET_DIR:-}" ]; then
+        rm -r "$SOCKET_DIR" 2>/dev/null || true
+    fi
     exit "$status"
 }
 
 join_tailnet() {
     log "Starting userspace tailscaled (log: $WORK/tailscaled.log)"
+    # Unix socket paths are limited to ~108 bytes, so the socket can't live in
+    # $WORK, which may be deep (e.g. under a scratch filesystem).
+    SOCKET_DIR="$(mktemp -d /tmp/htc-ep.XXXXXX)"
+    local socket="$SOCKET_DIR/tailscaled.sock"
     # Own session, so a terminal Ctrl-C doesn't kill it before cleanup logs out.
     setsid "$TS_BIN_DIR/tailscaled" --tun=userspace-networking --state=mem: \
-        --statedir="$WORK/tailscale" --socket="$WORK/tailscaled.sock" \
+        --statedir="$WORK/tailscale" --socket="$socket" \
         >"$WORK/tailscaled.log" 2>&1 &
     TAILSCALED_PID=$!
-    TS=("$TS_BIN_DIR/tailscale" --socket="$WORK/tailscaled.sock")
+    TS=("$TS_BIN_DIR/tailscale" --socket="$socket")
     for _ in $(seq 30); do
-        [ -S "$WORK/tailscaled.sock" ] && break
+        [ -S "$socket" ] && break
         sleep 1
     done
-    [ -S "$WORK/tailscaled.sock" ] || die "tailscaled did not start; see $WORK/tailscaled.log"
+    [ -S "$socket" ] || die "tailscaled did not start; see $WORK/tailscaled.log"
 
     # Pass the key through a private file so it never shows up in `ps`.
     AUTHKEY_FILE="$WORK/authkey"
@@ -175,6 +189,14 @@ prepare_annex() {
     (cd "$ANNEX_DIR" && bash annex-setup.sh) ||
         die "annex setup failed (see the output above); an 'Unrecognized linux distro' means HTCondor has no EP build for this host"
     install -m 600 "$BUNDLE_DIR/annex-ep.token" "$ANNEX_DIR/annex.token"
+    # annex-job-setup.sh copies this file into the EP's config directory.
+    if [ -n "$EP_CONFIG" ]; then
+        log "Adding EP configuration from $EP_CONFIG"
+        {
+            printf '\n# From %s (run-ep.sh --config)\n' "$EP_CONFIG"
+            cat "$EP_CONFIG"
+        } >>"$ANNEX_DIR/20-annex-pilot-instance"
+    fi
 }
 
 run_annex() {
@@ -186,17 +208,25 @@ run_annex() {
     wait "$PILOT_PID"
 }
 
-case "${1:-}" in
-    -h | --help)
-        usage
-        exit 0
-        ;;
-    "") ;;
-    *)
-        usage >&2
-        exit 1
-        ;;
-esac
+EP_CONFIG=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        --config)
+            [ $# -ge 2 ] || die "--config requires a file argument"
+            [ -f "$2" ] && [ -r "$2" ] || die "--config file not found or not readable: $2"
+            EP_CONFIG="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
+            shift 2
+            ;;
+        *)
+            usage >&2
+            exit 1
+            ;;
+    esac
+done
 
 # shellcheck source=/dev/null # written by ap/make-ep-bundle.sh
 . "$BUNDLE_DIR/ep.env"

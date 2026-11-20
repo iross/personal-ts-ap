@@ -126,6 +126,23 @@ which then ends up in your shell history. `run-ep.sh` then:
 On exit it shuts HTCondor down, which withdraws the EP from the AP, and leaves the tailnet. Its
 working files are under `htc-ep/work-<hostname>-<pid>/`, including the HTCondor logs.
 
+**Host-specific settings.** To change what this EP offers without changing the bundle, put
+HTCondor configuration in a file on the EP host and pass it with `--config` (also accepted by
+`docker-ep.sh`). For example, to keep one of the machine's GPUs out of every slot:
+
+```
+# ep-local.conf
+OFFLINE_MACHINE_RESOURCE_GPUs = GPU-a325ade4
+```
+
+```
+TS_AUTHKEY=file:$HOME/my-ts-authkey htc-ep/run-ep.sh --config ep-local.conf
+```
+
+The GPU ID must match what HTCondor detects. Once the EP is up, check on the AP with
+`condor_status -af Name DetectedGPUs AssignedGPUs`: `DetectedGPUs` lists every GPU, and the
+offline one should be missing from `AssignedGPUs`.
+
 **In Docker.** On a host whose distribution the annex setup doesn't recognize (for example
 NixOS), or wherever Docker is easier, run the same thing in a container instead:
 
