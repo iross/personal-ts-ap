@@ -147,7 +147,8 @@ EPs of another architecture (for example an aarch64 EP with an x86_64 AP), add
 
 **Multi-stage DAG**
 
-`examples/dag_plot` squares a list of numbers, builds an R container, and plots the results:
+`examples/dag_plot` squares a list of numbers, builds an R container, and plots the results. It
+predates the tailnet setup and has not been tested with it.
 
 ```
 cd examples/dag_plot           # Docker AP: copy it under ~/personal-htcondor first

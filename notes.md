@@ -118,3 +118,7 @@ Hook revs are pinned to commit SHAs. Update them only to releases at least a wee
 ```
 prek update --cooldown-days 7 --freeze
 ```
+
+`tests/run-test-ep.sh <bundle> <authkey-file> [name]` runs an EP bundle in a container that stands
+in for an unprivileged HPC node (tailnet range unreachable from the kernel, non-root user). Start
+two with different names to test several EPs against one AP.
