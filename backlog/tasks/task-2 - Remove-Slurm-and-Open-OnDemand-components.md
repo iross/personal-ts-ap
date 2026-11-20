@@ -12,6 +12,8 @@ dependencies:
   - TASK-1
 priority: high
 ordinal: 2000
+references:
+  - https://app.todoist.com/app/task/6j3gCvMMxjMp278v
 ---
 
 ## Description

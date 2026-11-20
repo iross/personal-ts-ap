@@ -12,6 +12,8 @@ dependencies:
   - TASK-2
 priority: medium
 ordinal: 4000
+references:
+  - https://app.todoist.com/app/task/6j3gCvMMxjMp278v
 ---
 
 ## Description
