@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # start.sh - Start a personal HTCondor Access Point (AP) from an existing,
 # already-configured condor dir, and run it in the foreground. See
@@ -53,6 +53,12 @@ fi
 
 if [ ! -d "$CONDOR_DIR" ]; then
     echo "error: condor dir not found at $CONDOR_DIR" >&2
+    exit 1
+fi
+
+if ! "$CONDOR_DIR/sbin/condor_master" -version >/dev/null 2>&1; then
+    echo "error: the HTCondor binaries in $CONDOR_DIR cannot run on this host." >&2
+    echo "       If it was installed with ap/docker.sh, start it with: ap/docker.sh start" >&2
     exit 1
 fi
 
@@ -172,5 +178,6 @@ fi
 
 echo "==> To interact with this AP, source the condor env file at $CONDOR_DIR/condor.sh:"
 echo "    '. $CONDOR_DIR/condor.sh'"
+echo "    (if the AP runs via ap/docker.sh, use 'ap/docker.sh shell' instead)"
 
 wait "$MASTER_PID"

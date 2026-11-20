@@ -52,3 +52,14 @@ IDENTITY="$(whoami)@$(condor_config_val ANNEX_TOKEN_DOMAIN)"
 condor_token_create -key AP -identity "$IDENTITY" \
     -authz READ -authz WRITE -authz ADVERTISE_STARTD -authz ADVERTISE_MASTER -authz DAEMON
 ```
+
+# Development
+
+Shell scripts are checked by prek hooks (`.pre-commit-config.yaml`): shellcheck, shfmt, and
+file hygiene. Run `prek install` once per clone, and `prek run --all-files` before committing.
+
+Hook revs are pinned to commit SHAs. Update them only to releases at least a week old:
+
+```
+prek update --cooldown-days 7 --freeze
+```
