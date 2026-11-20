@@ -79,6 +79,17 @@ echo "==> Starting HTCondor AP"
 "$CONDOR_DIR/sbin/condor_master" -f &
 MASTER_PID=$!
 
+# Ctrl-C (or docker stop) reaches this script, not the backgrounded master:
+# pass it on as SIGTERM, a graceful shutdown, and wait for the master to exit.
+shutdown_ap() {
+    trap - INT TERM
+    echo "==> Shutting down the AP"
+    kill -TERM "$MASTER_PID" 2>/dev/null || true
+    wait "$MASTER_PID" || true
+    exit 0
+}
+trap shutdown_ap INT TERM
+
 # --- Mint the annex EP token ---------------------------------------------
 # Wait up to 10 seconds for the AP to provision its signing key.
 POOL_FILE="$CONDOR_DIR/local/passwords.d/POOL"

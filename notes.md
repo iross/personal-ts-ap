@@ -5,8 +5,8 @@ contributed through `htcondor annex create`'s tarball and connect to the AP over
 without root on the EP. The AP is based on `bin/make-ap-from-tarball` from the non-root HTCondor
 installation instructions. The EP is based on the configuration in the annex tarball.
 
-The EP-to-AP transport (local forwarder, `TCP_FORWARDING_HOST`, CCB) is described in
-`backlog/decisions/decision-1`.
+Why the network is set up this way (a local forwarder on each EP, the AP addressed as
+`127.0.0.1:9618`, CCB) is recorded in `backlog/decisions/decision-1`.
 
 # AP Configuration
 
@@ -24,6 +24,22 @@ else, can reach it. The LAN cannot connect to port 9618.
 `COLLECTOR_HOST` points at the annex collector (`ap_collector`), so `condor_status` and friends
 work without `-pool`. `20-ap-tailnet.conf` must sort after `11-ap-annex.conf`, which sets its own
 `ANNEX_COLLECTOR`.
+
+## Job Routing
+
+`11-ap-annex.conf` enables the `HPC_ANNEX` feature with `HPC_ANNEX_REQUIRE_JOB = false`, and a job
+transform sets `TargetAnnexName = "default-annex"` on every job that doesn't name an annex, except
+scheduler (7) and local (12) universe jobs, which run on the AP itself. Since all EPs come from
+that annex, users don't need to add anything to their submit files.
+
+## Docker Mode
+
+On hosts without a native HTCondor build, `ap/docker.sh` runs `install.sh` and `start.sh` in an
+AlmaLinux 9 image (`ap/Dockerfile`) with `--network host`. The image is built with the invoking
+user's name, uid, gid and home, and `~/personal-htcondor` and `ap/` are bind-mounted at their host
+paths, so the install and the `current-ap` symlink look the same inside and outside the container.
+`tailscale` stays on the host: `docker.sh start` runs `tailnet.sh` there, and passes
+`PERSONAL_AP_IN_CONTAINER=1` so `start.sh` skips it inside the container.
 
 ## Daemon Name Pinning
 
@@ -58,6 +74,27 @@ Condor tools run on the AP host as the AP's owner still authenticate by FS, so n
 token for local tools is needed.
 
 # EP Configuration
+
+## Launcher
+
+`ap/make-ep-bundle.sh` packs the annex tarball, the EP token, the AP's tailnet IP (`ep.env`) and
+`ep/run-ep.sh` + `ep/forward.py`. On the EP, `run-ep.sh`:
+
+* runs the annex's `annex-setup.sh` first, which downloads HTCondor for the host; it needs no
+  tailnet, so an unsupported host fails before joining it.
+* starts `tailscaled --tun=userspace-networking --state=mem:`. Without root there is no tun
+  device, so the kernel cannot route to the tailnet; only tailscaled can. `--state=mem:` makes the
+  node ephemeral. The auth key is passed as `--auth-key=file:<0600 file>`, never on a command line.
+* starts `forward.py`, which listens on 127.0.0.1:9618 and pipes each connection through
+  `tailscale nc <AP-ip> 9618`. Because the AP advertises `127.0.0.1:9618`, every connection the
+  EP makes (collector, CCB, direct attach, file transfer) goes through it. This is also why only
+  one EP can run per host.
+* runs `hpc.slurm` with `SLURM_JOBID` unset, which makes the annex run `annex-node.sh` directly on
+  this host instead of through `srun`.
+
+On exit it sends SIGTERM to the EP's `condor_master` and waits for all of its HTCondor processes,
+so the EP's ads are withdrawn from the AP. `condor_master` gives each daemon its own process group,
+so they are found by executable path (under the EP's work directory), not by process group.
 
 ## Explicit IDToken Creation
 
