@@ -152,6 +152,15 @@ Use the condor tools on the AP host:
 `condor_status` lists the EPs connected to your AP. Every job is routed to `default-annex`
 automatically.
 
+**Test job.** The AP writes a ready-to-submit job to `~/personal-htcondor/test-job/` the first
+time it starts. It matches EPs of either architecture and reports where it ran:
+
+```
+cd ~/personal-htcondor/test-job && condor_submit hello.sub       # native AP
+ap/docker.sh shell bash -c 'cd ~/personal-htcondor/test-job && condor_submit hello.sub'   # Docker AP
+cat ~/personal-htcondor/test-job/hello.out    # after it finishes: "Hello from <EP> (<arch>)"
+```
+
 **Hello world**
 
 ```

@@ -179,6 +179,40 @@ if ! prepare_annex; then
     echo "WARNING: could not prepare annex '$ANNEX_NAME'; the AP is still running"
 fi
 
+# --- Test job ----------------------------------------------------------------
+# A ready-to-submit job for checking that EPs run work. Written only if absent,
+# under ~/personal-htcondor so the Docker AP can see it too.
+TEST_JOB_DIR="$HOME/personal-htcondor/test-job"
+if [ ! -e "$TEST_JOB_DIR" ]; then
+    mkdir -p "$TEST_JOB_DIR"
+    cat >"$TEST_JOB_DIR/hello.sh" <<'EOF'
+#!/bin/bash
+echo "Hello from $(hostname) ($(uname -m))"
+sleep 30
+EOF
+    chmod +x "$TEST_JOB_DIR/hello.sh"
+    cat >"$TEST_JOB_DIR/hello.sub" <<EOF
+# Test job for this AP's annex EPs. Submit with: condor_submit hello.sub
+executable              = hello.sh
+log                     = hello.log
+output                  = hello.out
+error                   = hello.err
+should_transfer_files   = Yes
+when_to_transfer_output = ON_EXIT
+request_cpus            = 1
+request_memory          = 512M
+request_disk            = 1G
+
+# Run on the annex's EPs (the AP adds this to every job anyway).
++TargetAnnexName        = "$ANNEX_NAME"
+# Accept either architecture, so x86_64 and aarch64 EPs both match.
+requirements            = (Arch == "X86_64" || Arch == "aarch64")
+
+queue
+EOF
+    echo "==> Wrote a test job to $TEST_JOB_DIR (submit hello.sub there)"
+fi
+
 echo "==> To interact with this AP, source the condor env file at $CONDOR_DIR/condor.sh:"
 echo "    '. $CONDOR_DIR/condor.sh'"
 echo "    (if the AP runs via ap/docker.sh, use 'ap/docker.sh shell' instead)"
