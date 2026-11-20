@@ -1,0 +1,7 @@
+# ep/forward.py runs on EP hosts with Python as old as 3.6 (EL8); py37 is
+# ruff's oldest target, so keep 3.6 compatibility in mind when editing.
+target-version = "py37"
+line-length = 100
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP"]

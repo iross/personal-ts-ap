@@ -18,3 +18,9 @@ repos:
     hooks:
       - id: shfmt
         args: [-w, -i, "4", -ci]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: ef6cf06c079dd6b299dfc720b0f14400c9d168e1 # frozen: v0.17.5
+    hooks:
+      - id: ruff-check
+      - id: ruff-format
