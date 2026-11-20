@@ -1,4 +1,4 @@
-# HTCondor DAG (Directed Acylic Graph). Defines an ordering of 
+# HTCondor DAG (Directed Acylic Graph). Defines an ordering of
 # job lists in a multi-stage workflow
 
 # First job list: Run calculations on a list of numbers (square them)

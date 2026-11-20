@@ -2,11 +2,7 @@
 #
 # install.sh - Install a personal HTCondor Access Point (AP) from an
 # HTCondor tarball (downloaded automatically if not already present). See
-# start.sh to run the installed AP, and ap.sub.
-#
-# This script performs the "Personal AP Install" steps described in
-# README.md. It is expected to be run from within a clone of the
-# personal-ap-systemd repository.
+# start.sh to run the installed AP.
 
 set -euo pipefail
 
@@ -70,17 +66,18 @@ if [ ! -f "$TARBALL_PATH" ]; then
         echo "error: /etc/os-release not found; cannot detect EL version" >&2
         exit 1
     fi
+    # shellcheck source=/dev/null # host file, not part of this repo
     OS_INFO="$(. /etc/os-release && echo " $ID $ID_LIKE |${VERSION_ID%%.*}")"
     EL_VERSION="${OS_INFO##*|}"
     case "$OS_INFO" in
-        *" rhel "*|*" rhel|"*|*" centos "*|*" rocky "*|*" almalinux "*) ;;
+        *" rhel "* | *" rhel|"* | *" centos "* | *" rocky "* | *" almalinux "*) ;;
         *)
             echo "error: this host is not an EL (RHEL-compatible) host" >&2
             exit 1
             ;;
     esac
     case "$EL_VERSION" in
-        8|9|10) ;;
+        8 | 9 | 10) ;;
         *)
             echo "error: unsupported EL version '$EL_VERSION' (supported: 8, 9, 10)" >&2
             exit 1
@@ -110,16 +107,16 @@ echo "==> Configuring HTCondor as a single-user AP"
 (cd "$CONDOR_DIR" && bin/make-ap-from-tarball)
 
 # Pin daemon names, which otherwise default to this node's FULL_HOSTNAME,
-# so they stay consistent across resumes on a different Slurm node. See
+# so they stay consistent if the AP is resumed on a different host. See
 # notes.md's "Daemon Name Pinning".
-cat > "$CONDOR_DIR/local/config.d/12-ap-trust-domain.conf" <<EOF
+cat >"$CONDOR_DIR/local/config.d/12-ap-trust-domain.conf" <<EOF
 TRUST_DOMAIN = condor-$SUFFIX
 ANNEX_TOKEN_DOMAIN = condor-$SUFFIX
 SCHEDD_NAME = condor-$SUFFIX@condor-$SUFFIX
 EOF
 
 # Alias `condor_status` to run against the AP's annex collector
-cat >> "$CONDOR_DIR/condor.sh" << EOF
+cat >>"$CONDOR_DIR/condor.sh" <<EOF
 alias condor_status="condor_status -pool \$(condor_config_val NETWORK_HOSTNAME):9618?sock=ap_collector"
 EOF
 
@@ -132,19 +129,13 @@ cp "$REPO_DIR/11-ap-annex.conf" "$CONDOR_DIR/local/config.d/"
 # AP's own node could otherwise authenticate via FS with the wrong
 # identity), and grant its custom subject DAEMON access for schedd direct
 # connect and CCB registration. See notes.md's "Force IDToken Auth".
-cat > "$CONDOR_DIR/local/config.d/14-ap-force-idtoken.conf" <<EOF
+cat >"$CONDOR_DIR/local/config.d/14-ap-force-idtoken.conf" <<EOF
 AP_COLLECTOR.SEC_DEFAULT_AUTHENTICATION_METHODS = IDTOKENS
 SCHEDD.SEC_DEFAULT_AUTHENTICATION_METHODS = IDTOKENS
 
 AP_COLLECTOR.ALLOW_DAEMON = \$(ALLOW_DAEMON), $(whoami)@condor-$SUFFIX
 SCHEDD.ALLOW_DAEMON = \$(ALLOW_DAEMON), $(whoami)@condor-$SUFFIX
 EOF
-
-# Put the AP's lock dir at a fixed path within the install dir. The master holds
-# $LOCK/InstanceLock for as long as it runs, which entrypoint.sh polls to avoid
-# starting a second AP on the same install.
-mkdir -p "$CONDOR_DIR/lock"
-echo "LOCK = $CONDOR_DIR/lock" > "$CONDOR_DIR/local/config.d/15-ap-lock.conf"
 
 # Leave a well-known symlink so later jobs can find and resume this AP.
 mkdir -p "$HOME/personal-htcondor"

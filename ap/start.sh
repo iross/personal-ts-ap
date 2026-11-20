@@ -1,8 +1,8 @@
 #!/bin/bash
 #
 # start.sh - Start a personal HTCondor Access Point (AP) from an existing,
-# already-configured condor dir, and run it in the foreground (intended
-# for running the AP as a Slurm job). See install.sh, ap.sub.
+# already-configured condor dir, and run it in the foreground. See
+# install.sh.
 
 set -euo pipefail
 
@@ -62,18 +62,13 @@ echo "==> Updating shell environment with AP install"
 # shellcheck disable=SC1091
 . "$CONDOR_DIR/condor.sh"
 
-# --- Run the AP (e.g. as a Slurm job) ----------------------------------
-# Pin NETWORK_HOSTNAME in the shared config, removing any previous pin
-# first so a resumed AP doesn't copy the old instance's hostname.
+# --- Run the AP ----------------------------------------------------------
+# Pin NETWORK_HOSTNAME, removing any previous pin first so a resumed AP
+# doesn't copy the old instance's hostname.
 rm -f "$CONDOR_DIR/local/config.d/13-ap-hostname.conf"
 AP_FULL_HOSTNAME="$(condor_config_val FULL_HOSTNAME)"
 echo "==> Pinning hostname to $AP_FULL_HOSTNAME via NETWORK_HOSTNAME"
-echo "NETWORK_HOSTNAME = $AP_FULL_HOSTNAME" > "$CONDOR_DIR/local/config.d/13-ap-hostname.conf"
-
-# Marker telling a multi-node launcher (see entrypoint.sh) that the annex
-# tarball is complete; cleared here so a resumed AP doesn't leave a stale one.
-ANNEX_READY="$CONDOR_DIR/annex-ready"
-rm -f "$ANNEX_READY"
+echo "NETWORK_HOSTNAME = $AP_FULL_HOSTNAME" >"$CONDOR_DIR/local/config.d/13-ap-hostname.conf"
 
 echo "==> Starting HTCondor AP"
 "$CONDOR_DIR/sbin/condor_master" -f &
@@ -96,9 +91,8 @@ IDENTITY="$(whoami)@$(condor_config_val UID_DOMAIN)"
 condor_token_create -identity "$IDENTITY" -authz READ -authz WRITE -token "$TOKEN_NAME"
 echo "    Generated sample IDToken for $IDENTITY at $CONDOR_DIR/local/tokens.d/$TOKEN_NAME"
 
-# Mint the annex EPs' token here, where condor's binaries are known to be
-# loadable, so the EP nodes never have to run them off the shared FS. The
-# bundled annex.token in the tarball is scope-clipped to READ/WRITE; this
+# Mint the annex EPs' token here, on the AP. The bundled annex.token in the
+# tarball has the wrong identity for the annex START policy; this
 # replacement is minted offline against the AP's own signing key, using the
 # pinned ANNEX_TOKEN_DOMAIN so it stays valid across AP resumes. See notes.md's
 # "Explicit IDToken Creation". Its identity doesn't depend on the EP, so all
@@ -112,8 +106,8 @@ if [ -z "$ANNEX_TOKEN_DOMAIN" ]; then
     # AP's annex jobs won't match.
     echo "WARNING: ANNEX_TOKEN_DOMAIN is not set; not minting the annex EP token"
 elif (umask 077 && condor_token_create -key AP -identity "$(whoami)@$ANNEX_TOKEN_DOMAIN" \
-        -authz READ -authz WRITE -authz ADVERTISE_STARTD -authz ADVERTISE_MASTER -authz DAEMON \
-        > "$ANNEX_EP_TOKEN") && [ -s "$ANNEX_EP_TOKEN" ]; then
+    -authz READ -authz WRITE -authz ADVERTISE_STARTD -authz ADVERTISE_MASTER -authz DAEMON \
+    >"$ANNEX_EP_TOKEN") && [ -s "$ANNEX_EP_TOKEN" ]; then
     echo "    Minted annex EP token at $ANNEX_EP_TOKEN"
 else
     rm -f "$ANNEX_EP_TOKEN"
@@ -172,13 +166,11 @@ prepare_annex() {
     echo "==> Annex tarball at $ANNEX_TARBALL"
 }
 
-if prepare_annex; then
-    touch "$ANNEX_READY"
-else
+if ! prepare_annex; then
     echo "WARNING: could not prepare annex '$ANNEX_NAME'; the AP is still running"
 fi
 
-echo "==> To interact with this AP from the login node, source the condor env file at $CONDOR_DIR/condor.sh:"
+echo "==> To interact with this AP, source the condor env file at $CONDOR_DIR/condor.sh:"
 echo "    '. $CONDOR_DIR/condor.sh'"
 
 wait "$MASTER_PID"

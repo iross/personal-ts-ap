@@ -1,5 +1,5 @@
 # Executable file to run in this HTCondor job
-executable              = square.sh 
+executable              = square.sh
 arguments               = $(number)
 
 # Output files for this HTCondor job
@@ -7,7 +7,7 @@ log                     = log/square.$(number).log
 output                  = log/square.$(number).out
 error                   = log/square.$(number).err
 
-should_transfer_files   = Yes 
+should_transfer_files   = Yes
 when_to_transfer_output = ON_EXIT
 # Transfer the calculation output back to the current working directory
 transfer_output_files   = $(number)_squared.txt
