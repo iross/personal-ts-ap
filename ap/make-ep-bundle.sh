@@ -22,6 +22,8 @@ the to-be-EP, then run there:
 
   tar -xzf <bundle> && TS_AUTHKEY=<key> htc-ep/run-ep.sh
 
+or, to run the EP in Docker: TS_AUTHKEY=<key> htc-ep/docker-ep.sh
+
 The bundle contains the AP's EP token: keep it private.
 
 Options:
@@ -69,7 +71,7 @@ AP_TAILNET_IP="$("$AP_DIR/tailnet.sh" | sed -n 's/^AP_TAILNET_IP=//p')"
 STAGE="$(mktemp -d)"
 trap 'rm -r "$STAGE"' EXIT
 mkdir "$STAGE/htc-ep"
-cp "$EP_SRC_DIR/run-ep.sh" "$EP_SRC_DIR/forward.py" "$ANNEX_TARBALL" "$EP_TOKEN" "$STAGE/htc-ep/"
+cp "$EP_SRC_DIR/run-ep.sh" "$EP_SRC_DIR/docker-ep.sh" "$EP_SRC_DIR/forward.py" "$ANNEX_TARBALL" "$EP_TOKEN" "$STAGE/htc-ep/"
 cat >"$STAGE/htc-ep/ep.env" <<EOF
 AP_TAILNET_IP=$AP_TAILNET_IP
 ANNEX_NAME=$ANNEX_NAME
@@ -78,3 +80,4 @@ EOF
 (umask 077 && tar -czf "$OUTPUT" -C "$STAGE" htc-ep)
 echo "==> Wrote $OUTPUT (AP at $AP_TAILNET_IP; contains the EP token, keep it private)"
 echo "    On the EP: tar -xzf $(basename "$OUTPUT") && TS_AUTHKEY=<key> htc-ep/run-ep.sh"
+echo "    (or htc-ep/docker-ep.sh instead of run-ep.sh, to run the EP in Docker)"

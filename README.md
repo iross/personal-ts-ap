@@ -34,7 +34,7 @@ The workflow:
   `tailscale` CLI must be on the host either way.
 - `sudo` once, to let your user manage `tailscale serve` (see below).
 
-**EP host**
+**EP host**, either natively:
 
 - Linux that the annex setup recognizes: AlmaLinux/Rocky/RHEL/CentOS 8–10, Debian 12–13,
   Ubuntu 22.04–26.04 or openSUSE Leap 15–16 on x86_64; AlmaLinux-family 8–10 or Ubuntu 24.04+ on
@@ -44,6 +44,12 @@ The workflow:
 - Outbound internet access: the EP downloads Tailscale and HTCondor when it starts.
 - Port 127.0.0.1:9618 free: one EP per host, and it uses the whole machine. For the same reason
   an EP can't run on the AP host itself.
+
+or in Docker, on any Linux host (for example NixOS):
+
+- Docker that your user can run without `sudo`. Nothing else; no root, and no extra container
+  privileges.
+- Outbound internet access, as above.
 
 ## 1. Start the AP
 
@@ -119,6 +125,20 @@ which then ends up in your shell history. `run-ep.sh` then:
 
 On exit it shuts HTCondor down, which withdraws the EP from the AP, and leaves the tailnet. Its
 working files are under `htc-ep/work-<hostname>-<pid>/`, including the HTCondor logs.
+
+**In Docker.** On a host whose distribution the annex setup doesn't recognize (for example
+NixOS), or wherever Docker is easier, run the same thing in a container instead:
+
+```
+TS_AUTHKEY=file:$HOME/my-ts-authkey htc-ep/docker-ep.sh
+```
+
+This builds a small AlmaLinux 9 image as your user and runs `run-ep.sh` in it, in the foreground,
+as container `htc-ep-<hostname>`. Ctrl-C or `docker stop -t 90 htc-ep-<hostname>` stops it
+gracefully. Downloads are cached on the host (`~/.cache/htc-ep`, `~/.hpc-annex`), and work
+directories and logs land in `htc-ep/` as above. The container has its own network namespace, so
+a Docker EP can also run on the AP host. Jobs that use `container_image` won't run in a Docker EP:
+Apptainer needs user namespaces, which Docker blocks by default.
 
 ## Submit jobs
 
