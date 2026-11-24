@@ -77,8 +77,8 @@ token for local tools is needed.
 
 ## Launcher
 
-`ap/make-ep-bundle.sh` packs the annex tarball, the EP token, the AP's tailnet IP (`ep.env`) and
-`ep/run-ep.sh` + `ep/forward.py`. On the EP, `run-ep.sh`:
+`ap/make-ep-bundle.sh` packs the annex tarball, the EP token, the AP's tailnet IP (`ep.env`)
+and `ep/run-ep.sh` + `ep/forward.py`. On the EP, `run-ep.sh`:
 
 * runs the annex's `annex-setup.sh` first, which downloads HTCondor for the host; it needs no
   tailnet, so an unsupported host fails before joining it.
@@ -95,6 +95,18 @@ token for local tools is needed.
 On exit it sends SIGTERM to the EP's `condor_master` and waits for all of its HTCondor processes,
 so the EP's ads are withdrawn from the AP. `condor_master` gives each daemon its own process group,
 so they are found by executable path (under the EP's work directory), not by process group.
+
+### Direct mode
+
+`run-ep.sh annex-NAME.tar` runs an annex made on another AP (e.g. a CHTC AP), with no bundle:
+it only sets up and runs the annex, with no Tailscale, no forwarder, and the tarball's
+`annex.token` used as issued. Without a tarball argument it runs the personal bundle it was
+unpacked from (identified by its `ep.env`). On a CHTC AP that token is valid:
+`htcondor annex create` fetches it with `condor_token_fetch -key hpcannex-key` as
+`NAME.<user>@<ANNEX_TOKEN_DOMAIN>`, lasting `ANNEX_TOKEN_LIFETIME` (90 days by default). The
+EP reaches the collector named in `annex.record` (ap2001's is
+`ap2002.chtc.wisc.edu:9618?sock=ap_collector`) and registers with its CCB, so it needs only
+outbound connections.
 
 ## Explicit IDToken Creation
 

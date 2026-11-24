@@ -23,6 +23,9 @@ The workflow:
    joins the tailnet and offers its whole machine to your AP.
 4. [Submit jobs](#submit-jobs) to the AP; they run on your EPs.
 
+The same EP launcher can also attach EPs to a CHTC AP, without Tailscale: see
+[Annex to a CHTC AP](#annex-to-a-chtc-ap-no-tailscale).
+
 ## Requirements
 
 **AP host**
@@ -211,6 +214,63 @@ AP host (it is not available inside the Docker AP). The `plot` step runs in that
 it needs EPs that can run Apptainer. `mksif` ignores build failures (`|| true`), so if
 Apptainer is missing on the AP, the error shows up later, when `plot` can't find `r.sif`.
 
+## Annex to a CHTC AP (no Tailscale)
+
+The same EP launcher can attach an EP to a CHTC Access Point (e.g. `ap2001.chtc.wisc.edu`) as an
+HTCondor annex, instead of to your own AP. The EP connects to CHTC directly, so it needs outbound
+internet access to the CHTC AP and its annex collector (port 9618), but no Tailscale and no AP of
+your own. CHTC marks annexes as under development: contact the facilitators (chtc@cs.wisc.edu)
+before you start.
+
+**On the CHTC AP.** `htcondor annex create` refuses to make an annex until a job targets it, so
+submit first. Add to each submit file, with your annex's name:
+
+```
+MY.TargetAnnexName = "my-annex"
+MY.WantFlocking    = true
+MY.WantGlidein     = true
+requirements       = (Target.AnnexName == "my-annex")
+```
+
+CHTC's APs restrict where a job may run according to these flags: with neither, CHTC's own pool;
+with `WantFlocking` only, machines whose names end in `.wisc.edu`; with `WantGlidein` only, CHTC
+or the OSPool. Setting both adds no restriction, which an annex EP outside `wisc.edu` needs, and
+the `requirements` line then keeps the jobs on your annex.
+
+**GPU jobs.** CHTC's APs give any job that sets `request_gpus` GPU Lab concurrency limits, and the
+schedd will not start a job with concurrency limits on an annex. After submitting, clear them for
+the whole cluster:
+
+```
+condor_qedit <cluster> ConcurrencyLimits undefined
+```
+
+Then create the annex, without naming a target machine, which writes `annex-my-annex.tar` to the
+current directory:
+
+```
+htcondor annex create --idle-time 3600 my-annex
+```
+
+The annex is yours alone: only jobs you submit run on it.
+
+**Run the EP.** On the EP host you need the tarball, as written (don't rename it), and
+`ep/run-ep.sh` from this repository; no bundle and no Tailscale:
+
+```
+scp ap2001.chtc.wisc.edu:annex-my-annex.tar .
+./run-ep.sh annex-my-annex.tar          # --config works as in 3. Run an EP
+```
+
+To run the EP in Docker, put `ep/docker-ep.sh` next to `run-ep.sh` and run
+`./docker-ep.sh annex-my-annex.tar` instead. The EP's work directory, with its logs, is created
+next to the tarball.
+
+The tarball contains the annex's token: **treat it like a password**. It can be used for any number
+of EP hosts until the token expires (the CHTC AP's `ANNEX_TOKEN_LIFETIME`).
+
+On the CHTC AP, `htcondor annex status my-annex` shows the EP once it has connected.
+
 ## Tailnet access: keys and policy
 
 **Auth keys.** For EPs, generate keys that are:
@@ -262,8 +322,9 @@ present, so remove that rule or drop the `deny` line.
   the next start. `tailscale serve` keeps forwarding port 9618 (to nothing) until you turn it off
   with `tailscale serve --tcp=9618 off`.
 - **EP**: Ctrl-C or SIGTERM; it also exits on its own after an hour without jobs. Each run leaves a
-  `htc-ep/work-<hostname>-<pid>/` directory with its logs and a copy of the HTCondor tarball;
-  delete old ones when you no longer need the logs.
+  `work-<hostname>-<pid>/` directory next to the annex tarball (in `htc-ep/` for your own AP),
+  with its logs and a copy of the HTCondor tarball; delete old ones when you no longer need the
+  logs.
 
 ## Troubleshooting
 
