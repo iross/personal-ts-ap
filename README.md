@@ -1,306 +1,344 @@
-# Personal HTCondor System on Slurm
-
-This repository contains instructions for launching a single-user HTCondor system on Slurm, through CHTC's [Open OnDemand instance](https://ondemand.chtc.wisc.edu/), or generically via the `sbatch` command line tool:
-
-- Creating an HTCondor Submit Node (Access Point) for queueing HTCondor jobs, as a single-node Slurm Job.
-- Submitting HTCondor jobs to your Access Point via your Slurm cluster's login node terminal.
-- Creating a full HTCondor system consisting of an Access Point and Worker Nodes (Execution Points) to run your submitted jobs.
-
-## Running an HTCondor System via CHTC Open OnDemand 
-
-The following instructions pertain to running an HTCondor system on CHTC's Open OnDemand web instance. for instructions in installing
-the HTCondor Open OnDemand app into another cluster, see [INSTALL.md](INSTALL.md)
-
-### Log into CHTC's Open OnDemand
-
-CHTC's Open OnDemand instance can be accessed at [ondemand.chtc.wisc.edu](https://ondemand.chtc.wisc.edu/). Log in using your UW NetID and Password.
-
-If you are new to CHTC and need help setting up an account, [apply for access](https://chtc.wisc.edu/uw-research-computing/form.html) via the CHTC user app.
-
-If you are an existing CHTC user and are unable to access Open OnDemand, contact the CHTC [facilitation team](https://chtc.cs.wisc.edu/uw-research-computing/get-help.html) for help.
-
-### Schedule an HTCondor Access Point on your Slurm Cluster
-
-Your Personal HTCondor access point runs as a single-node Slurm job. Your Access Point manages your HTCondor job queue.
-
-To launch an instance of the **Create Personal HTCondor Access Point** interactive app:
-
-1. Navigate to the "Interactive Apps" section of the Open OnDemand dashboard.
-
-1. Select "Create Personal HTCondor Access Point".
-
-1. In the app's submission form, select a Slurm partition for your AP. Your AP uses a fixed 1 CPU and 2 GB of RAM.
-
-1. Check the "Create Sample Submit File" checkbox to create a test HTCondor job description. 
-
-1. "Launch" the app.
-
-1. Watch the status of your AP interactive app. Wait for the AP app to reach the "Running" state. 
-
-### Submit your first HTCondor Job
-
-Place a "Hello World" HTCondor job into your AP's job queue. The sample job description created by the 
-**Create Personal HTCondor Access Point** is used in this step.
-
-1. Access the Spark Login Node
-
-    Open a Shell on the Spark login node via the "CHTC Spark Cluster Shell Access" menu item in Open OnDemand.
-    You will be prompted to log in again with your NetID and password.
-
-1. Set up your HTCondor environment
-
-    Source the following file in your home directory. This file configures the HTCondor command line tools on the
-    Spark login node to run against your Personal AP:
-
-    ```
-    . ~/personal-htcondor/current-ap/condor.sh
-    ```
-
-    You may also add the above line to your `~/.bashrc` to perform this configuration on every login.
-
-1. Change to your Sample Job's directory
-
-    ```
-    cd ~/personal-htcondor/sample-submit
-    ```
-
-1. Submit your HTCondor Job to your AP
-
-    ```
-    condor_submit hello.sub
-    ```
-
-1. Confirm that your Job Runs on the EP
-
-    ```
-    condor_watch_q
-    ```
-
-1. Check the output of your job after it finishes
-
-    ```
-    cat hello.out
-    ```
-
-1. If the job ran successfully, expect output similar to:
-
-    ```
-    Hello, World!
-    I am running on hpc-worker123
-    ```
-
-### Schedule an HTCondor System to run your jobs
-
-Once you've prepared your HTCondor job queue via the **Create Personal HTCondor Access Point** app, launch
-a full HTCondor system to run your queued jobs via the **Create Personal HTCondor System** app.
-
-1. Navigate to the "Interactive Apps" section of the Open OnDemand dashboard.
-
-1. Select "Create Personal HTCondor System".
-
-1. In the app's submission form, select a Slurm partition for your HTCondor System.
-
-1. Select a CPU and Memory allocation for your HTCondor Execution Point. An additional 1 CPU and 2 GB of RAM will be
-   allocated on top of this for an Access Point in this system.
-
-1. "Launch" the app.
-
-1. Watch the status of your AP interactive app. Wait for the AP app to reach the "Running" state.
-
-1. Watch the progress of your HTCondor Job Queue via the interactive app's job queue overview.
-
-## Running an HTCondor System via `sbatch`
-
-If you do not have access to the HTCondor Open OnDemand interactive apps, you may also schedule an
-HTCondor System directly via `sbatch`.
-
-### Prerequisites
-
-1. Ensure `git` is installed on your Slurm login node. Download this repository to your home directory via
-
-   ```
-   git clone https://github.com/mwestphall/personal-slurm-ap.git
-   ```
-
-1. The HTCondor system uses a shared filesystem for communication between your Slurm login node and your
-   Access Point on a Slurm worker node. Select a location on your shared filesystem as the base install dir for
-   your AP.
-
-### Schedule an HTCondor Access Point on your Slurm Cluster
-
-Your Personal HTCondor Access Point runs as a single-node Slurm job. Your Access Point manages your HTCondor job queue.
-
-To launch an HTCondor Access Point via `sbatch`:
-
-1. `cd` to the `ap` directory of this repository:
-
-   ```
-   cd ~/personal-slurm-ap/ap
-   ```
-
-1. Submit `entrypoint.sh` via `sbatch`. The Access Point requests 1 CPU and 2 GB RAM by default, which should be sufficient
-   for most single-user job queues.
-
-   ```
-   sbatch entrypoint.sh --base-dir <shared-fs-dir>
-   ```
-
-1. Tail the created job's logs to confirm that the Access Point starts successfully.
-
-  ```
-  $ tail -f slurm-<jobid>.out
-  ...
-  0: ==> To interact with this AP from the login node, source the condor env file at <shared-fs-dir>/condor-<jobid>/condor.sh:
-  0:     '. <shared-fs-dir>/condor-<jobid>/condor.sh'
-  ```
-
-1. Source the environment file indicated in the job logs, then confirm that you can contact both running daemons on the Access Point.
-   `condor_q` lists the jobs in the Access Point's job queue, while `condor_status` lists all running HTCondor daemons connected to
-   the Access Point.
-
-   ```
-   $ . <shared-fs-dir>/condor-<jobid>/condor.sh
-
-   $ condor_q
-   
-   -- Schedd: hpc-worker100.slurm.cluster : <192.168.0.1:9618?... @ 08/28/26 14:11:15
-   OWNER BATCH_NAME      SUBMITTED   DONE   RUN    IDLE   HOLD  TOTAL JOB_IDS
-   
-   Total for query: 0 jobs; 0 completed, 0 removed, 0 idle, 0 running, 0 held, 0 suspended 
-   Total for all users: 0 jobs; 0 completed, 0 removed, 0 idle, 0 running, 0 held, 0 suspended
-
-   $ condor_status -any
-   MyType             TargetType         Name                                     
-   
-   Collector          None               My Pool - hpc-worker100.slurm.cluster@hpc-worker100.slurm.cluster
-   Scheduler          None               hpc-worker100.slurm.cluster
-   Submitter          None               you@hpc-worker100.slurm.cluster
-   ```
-
-### Submit your first HTCondor Job
-
-Submit a "Hello World" HTCondor job to your Access Point's job queue. 
-
-1. Change directories to `examples/hello_world` and examine its contents. It contains a 
-   submit description file (`hello.sub`) and an executable bash script (`hello.sh`).
-
-
-   ```
-   $ cd examples/hello_world
-   $ less hello.sub
-   $ less hello.sh
-   ```
-
-1. Submit your HTCondor job to your AP
-
-   ```
-   condor_submit hello.sub
-   ```
-
-1. Confirm that your job has been enqueued successfully
-
-   ```
-   $ condor_q
-   
-   -- Schedd: hpc-worker100.slurm.cluster : <192.168.0.1:9618?... @ 08/28/26 14:11:15
-   OWNER BATCH_NAME      SUBMITTED   DONE   RUN    IDLE  TOTAL JOB_IDS
-   you   ID: 1         11/10 11:46      _     _       1      1 1.0
-   
-   Total for query: 1 jobs; 0 completed, 0 removed, 1 idle, 0 running, 0 held, 0 suspended 
-   Total for all users: 1 jobs; 0 completed, 0 removed, 1 idle, 0 running, 0 held, 0 suspended
-   ```
-
-### (Optional) Submit a multi-stage HTCondor DAG
-
-For an example of HTCondor workflow management, submit a multi-stage DAG (Directed Acyclic Graph) to 
-your Access Point's job queue.
-
-1. Change directories to `examples/dag_plot` and examine its contents. It contains:
-   - A DAG description file describing a three-stage workflow (`square_and_plot.dag`)
-   - Submit description files for each stage of the workflow (`square.sub`, `mksif.sub`, and `plot.sub`)
-   - An executable script for each stage of the workflow (`square.sh` and `plot.R`)
-   - A list of inputs for the first stage of the workflow (`numbers.txt`)
-
-1. Note the features of the submit description files:
-   - `square.sub` contains the queue statement `queue number from numbers.txt`. This instructs
-     your AP to queue a list of jobs, with one instance per line in the input file.
-   - `mksif.sub` contains a `shell = apptainer build` statement that pre-builds an `R` container
-     environment for `plot.sub`. This translates the default Docker `R` container into an Apptainer SIF
-     file.
-   - `plot.sub` contains a container environment description `container_image = r.sif`.
-     This instructs an EP running your job to run it inside of the `R` container environment from
-     `mksif.sub`.
-
-1. Submit your HTCondor DAG to your AP
-
-   ```
-   condor_submit_dag square_and_plot.dag
-   ```
-
-1. Confirm that your DAG jobs have been enqueued successfully
-
-### Schedule an HTCondor System to run your jobs
-
-Once you've prepared your HTCondor job queue, launch a full HTCondor system to run your queued jobs.
-
-1. `cd` to the `ap` directory of this repository:
-
-   ```
-   cd ~/personal-slurm-ap/ap
-   ```
-
-1. Re-submit `entrypoint.sh` via `sbatch`, adding the `--system` argument to include an Execution Point alongside the Access Point.
-   Set the resource requirements for this Execution Point as desired via sbatch args:
-
-   ```
-   sbatch --cpus-per-task=4 --mem=8G entrypoint.sh --base-dir <shared-fs-dir> --system
-   ```
-
-1. Confirm that the Execution Point successfully registers with the Access Point:
-
-   ```
-   $ condor_status
-   Name                              OpSys      Arch     State     Activity  LoadAv  Mem    ActivityTime
-
-   slot1@hpc-worker101@hpc-worker101 LINUX      X86_64   Unclaimed Idle      0.000   8192   0+00:00:30
-
-               Total Owner Claimed Unclaimed Matched Preempting  Drain Backfill BkIdle
-
-   X86_64/LINUX     1     0       0        1       0          0      0        0      0
-
-          Total     1     0       0        1       0          0      0        0      0
-   
-   ```
-
-1. Confirm that your previously scheduled HTCondor job runs on the EP:
-
-   ```
-   $ condor_q
-   
-   -- Schedd: hpc-worker100.slurm.cluster : <192.168.0.1:9618?... @ 08/28/26 14:11:15
-   OWNER BATCH_NAME      SUBMITTED   DONE   RUN    IDLE  TOTAL JOB_IDS
-   you   ID: 1         11/10 11:46      _     1       0      1 1.0
-   
-   Total for query: 1 jobs; 0 completed, 0 removed, 0 idle, 1 running, 0 held, 0 suspended 
-   Total for all users: 1 jobs; 0 completed, 0 removed, 0 idle, 0 running, 0 held, 0 suspended
-   ```
-
-1. Check the output of your job after it finishes:
-
-   ```
-   $ cat hello.out
-   Hello, World!
-   I am running on hpc-worker123
-   ```
-
-### (Optional) Schedule an HTCondor System with GPUs to run your jobs
-
-HTCondor will automatically detect and use any GPUs allocated to its Slurm job. To schedule
-an HTCondor system with GPUs:
-
-1. Ensure that you are submitting to a partition that contains GPUs.
-1. Add a GPU request to your `sbatch` command.
+# Personal HTCondor AP over Tailscale
+
+Run your own single-user HTCondor Access Point (AP) on a machine on your
+[Tailscale](https://tailscale.com) tailnet, then add Execution Points (EPs) from any Linux
+machine you can log in to, with no root needed on the EP. EPs join the tailnet themselves, so they
+work from behind NAT and firewalls, and nothing is exposed outside your tailnet.
 
 ```
-sbatch --cpus-per-task=4 --mem=8G --part gpu --gres gpu:1 entrypoint.sh --base-dir <shared-fs-dir> --system
+   AP host (on your tailnet)                          EP host (any Linux, no root)
+  ┌──────────────────────────────┐                   ┌─────────────────────────────────┐
+  │ HTCondor AP  127.0.0.1:9618  │◄─ tailscale ──────┤ run-ep.sh                       │
+  │   ▲                          │   serve :9618     │  ├ tailscaled (userspace)       │
+  │   └─ tailscale serve ◄───────┼──── tailnet ◄─────┤  ├ forwarder 127.0.0.1:9618    │
+  └──────────────────────────────┘                   │  └ HTCondor EP (annex)          │
+                                                     └─────────────────────────────────┘
 ```
+
+The workflow:
+
+1. [Start an AP](#1-start-the-ap) on a host that is on your tailnet.
+2. [Build an EP bundle](#2-build-an-ep-bundle) on the AP.
+3. [Copy the bundle to the to-be-EP and run it](#3-run-an-ep) with a Tailscale auth key. The EP
+   joins the tailnet and offers its whole machine to your AP.
+4. [Submit jobs](#submit-jobs) to the AP; they run on your EPs.
+
+The same EP launcher can also attach EPs to a CHTC AP, without Tailscale: see
+[Annex to a CHTC AP](#annex-to-a-chtc-ap-no-tailscale).
+
+## Requirements
+
+**AP host**
+
+- Linux, joined to your tailnet with Tailscale installed and running.
+- Either a distribution HTCondor builds for (AlmaLinux/Rocky/RHEL/CentOS 8–10, Debian 12–13,
+  Ubuntu 22.04–26.04, Amazon Linux 2023, openSUSE Leap 15–16) with `python3`, `curl` and `tar`;
+  or, for anything else (for example NixOS), Docker that your user can run without `sudo`. The
+  `tailscale` CLI must be on the host either way.
+- `sudo` once, to let your user manage `tailscale serve` (see below).
+
+**EP host**, either natively:
+
+- Linux that the annex setup recognizes: AlmaLinux/Rocky/RHEL/CentOS 8–10, Debian 12–13,
+  Ubuntu 22.04–26.04 or openSUSE Leap 15–16 on x86_64; AlmaLinux-family 8–10 or Ubuntu 24.04+ on
+  aarch64.
+- `bash` 4 or newer, `curl`, `tar`, `sha256sum`, `python3` 3.6 or newer, and `setsid`
+  (util-linux). No root.
+- Outbound internet access: the EP downloads Tailscale and HTCondor when it starts.
+- Port 127.0.0.1:9618 free: one EP per host, and it uses the whole machine. For the same reason
+  an EP can't run on the AP host itself.
+
+or in Docker, on any Linux host (for example NixOS):
+
+- Docker that your user can run without `sudo`. Nothing else; no root, and no extra container
+  privileges.
+- Outbound internet access, as above.
+
+## 1. Start the AP
+
+Clone this repository on the AP host, then allow your user to manage Tailscale (once per host).
+This is needed so the AP can publish itself to the tailnet with `tailscale serve`:
+
+```
+sudo tailscale set --operator=$USER
+```
+
+**On a supported distribution**, install and start the AP:
+
+```
+ap/install.sh
+ap/start.sh --condor-dir ~/personal-htcondor/current-ap
+```
+
+**Anywhere else** (`install.sh` tells you when), use Docker. This runs the same scripts in an
+AlmaLinux 9 container with host networking, as your user:
+
+```
+ap/docker.sh install
+ap/docker.sh start
+```
+
+The AP runs in the foreground; use `tmux` or similar to keep it running after you log out.
+Ctrl-C (or `docker stop personal-htcondor-ap`) shuts it down. Starting it again resumes the same
+job queue. `install.sh` always creates a new, empty AP and points `~/personal-htcondor/current-ap`
+at it.
+
+At startup the AP:
+
+- listens on 127.0.0.1:9618 only, and runs `ap/tailnet.sh` so that `tailscale serve` exposes
+  port 9618 to your tailnet, and nothing else;
+- creates an annex named `default-annex` and an EP token, which the EP bundle carries.
+
+## 2. Build an EP bundle
+
+With the AP running, on the AP host:
+
+```
+ap/make-ep-bundle.sh
+```
+
+This writes `~/personal-htcondor/ep-bundle-default-annex.tar.gz`. It contains your AP's tailnet
+address, the annex setup, the EP launcher, and a token that lets an EP join your AP: **treat it
+like a password**. One bundle can be used for any number of EP hosts. Rebuild it after reinstalling
+the AP.
+
+## 3. Run an EP
+
+Create a Tailscale auth key in the admin console under
+[Settings → Keys](https://login.tailscale.com/admin/settings/keys) (see
+[Tailnet access](#tailnet-access-keys-and-policy) for the recommended settings; to tag it,
+set up the tag in your tailnet policy first). Copy the bundle to the EP host, save the key in a
+file only you can read, and run:
+
+```
+tar -xzf ep-bundle-default-annex.tar.gz
+(umask 077 && cat > ~/my-ts-authkey)          # paste the key, then Ctrl-D
+TS_AUTHKEY=file:$HOME/my-ts-authkey htc-ep/run-ep.sh
+```
+
+`TS_AUTHKEY` is either `file:<path>` as above, or the key itself (`TS_AUTHKEY=tskey-auth-...`),
+which then ends up in your shell history. `run-ep.sh` then:
+
+1. downloads Tailscale (version and checksum pinned) to `~/.cache/htc-ep`;
+2. downloads HTCondor for this host (cached in `~/.hpc-annex`) and sets up the annex;
+3. joins the tailnet as `htc-ep-<hostname>`, in userspace mode with in-memory state;
+4. checks that it can reach the AP, and starts the forwarder on 127.0.0.1:9618;
+5. runs the EP until it has been idle (no jobs) for an hour, or until you press Ctrl-C or send it
+   SIGTERM.
+
+On exit it shuts HTCondor down, which withdraws the EP from the AP, and leaves the tailnet. Its
+working files are under `htc-ep/work-<hostname>-<pid>/`, including the HTCondor logs.
+
+**Host-specific settings.** To change what this EP offers without changing the bundle, put
+HTCondor configuration in a file on the EP host and pass it with `--config` (also accepted by
+`docker-ep.sh`). For example, to keep one of the machine's GPUs out of every slot:
+
+```
+# ep-local.conf
+OFFLINE_MACHINE_RESOURCE_GPUs = GPU-a325ade4
+```
+
+```
+TS_AUTHKEY=file:$HOME/my-ts-authkey htc-ep/run-ep.sh --config ep-local.conf
+```
+
+The GPU ID must match what HTCondor detects. Once the EP is up, check on the AP with
+`condor_status -af Name DetectedGPUs AssignedGPUs`: `DetectedGPUs` lists every GPU, and the
+offline one should be missing from `AssignedGPUs`.
+
+**In Docker.** On a host whose distribution the annex setup doesn't recognize (for example
+NixOS), or wherever Docker is easier, run the same thing in a container instead:
+
+```
+TS_AUTHKEY=file:$HOME/my-ts-authkey htc-ep/docker-ep.sh
+```
+
+This builds a small AlmaLinux 9 image as your user and runs `run-ep.sh` in it, in the foreground,
+as container `htc-ep-<hostname>`. Ctrl-C or `docker stop -t 90 htc-ep-<hostname>` stops it
+gracefully. Downloads are cached on the host (`~/.cache/htc-ep`, `~/.hpc-annex`), and work
+directories and logs land in `htc-ep/` as above. The container has its own network namespace, so
+a Docker EP can also run on the AP host. Jobs that use `container_image` won't run in a Docker EP:
+Apptainer needs user namespaces, which Docker blocks by default.
+
+## Submit jobs
+
+Use the condor tools on the AP host:
+
+- native AP: `. ~/personal-htcondor/current-ap/condor.sh`, then `condor_submit`, `condor_q`, ...
+- Docker AP: `ap/docker.sh shell` for an interactive shell, or `ap/docker.sh shell condor_q` for
+  one command. Only `~/personal-htcondor` (and this repository's `ap/`) are visible inside the
+  container, so keep your job directories under `~/personal-htcondor`.
+
+`condor_status` lists the EPs connected to your AP. Every job is routed to `default-annex`
+automatically.
+
+**Test jobs.** At startup the AP writes ready-to-submit test jobs to
+`~/personal-htcondor/test-job/` (any that are missing; your edits are kept). They match EPs of
+either architecture:
+
+- `hello.sub` reports where it ran.
+- `gpu.sub` requests one GPU and reports which one HTCondor assigned (`Assigned GPUs`,
+  `CUDA_VISIBLE_DEVICES`) next to `nvidia-smi`'s list of the machine's GPUs.
+
+```
+cd ~/personal-htcondor/test-job && condor_submit hello.sub       # native AP
+ap/docker.sh shell bash -c 'cd ~/personal-htcondor/test-job && condor_submit hello.sub'   # Docker AP
+cat ~/personal-htcondor/test-job/hello.out    # after it finishes: "Hello from <EP> (<arch>)"
+```
+
+**Hello world**
+
+```
+cd examples/hello_world        # Docker AP: copy it under ~/personal-htcondor first
+condor_submit hello.sub
+condor_q
+cat hello.out                  # after it finishes: "I am running on <EP hostname>"
+```
+
+HTCondor requires jobs to run on the CPU architecture of the machine you submit from. To run on
+EPs of another architecture (for example an aarch64 EP with an x86_64 AP), add
+`requirements = Arch == "aarch64"` to the submit file.
+
+**Multi-stage DAG**
+
+`examples/dag_plot` squares a list of numbers, builds an R container, and plots the results. It
+predates the tailnet setup and has not been tested with it.
+
+```
+cd examples/dag_plot           # Docker AP: copy it under ~/personal-htcondor first
+condor_submit_dag square_and_plot.dag
+```
+
+Its `mksif` step runs `apptainer build` on the AP itself, so it needs Apptainer installed on the
+AP host (it is not available inside the Docker AP). The `plot` step runs in that container, so
+it needs EPs that can run Apptainer. `mksif` ignores build failures (`|| true`), so if
+Apptainer is missing on the AP, the error shows up later, when `plot` can't find `r.sif`.
+
+## Annex to a CHTC AP (no Tailscale)
+
+The same EP launcher can attach an EP to a CHTC Access Point (e.g. `ap2001.chtc.wisc.edu`) as an
+HTCondor annex, instead of to your own AP. The EP connects to CHTC directly, so it needs outbound
+internet access to the CHTC AP and its annex collector (port 9618), but no Tailscale and no AP of
+your own. CHTC marks annexes as under development: contact the facilitators (chtc@cs.wisc.edu)
+before you start.
+
+**On the CHTC AP.** `htcondor annex create` refuses to make an annex until a job targets it, so
+submit first. Add to each submit file, with your annex's name:
+
+```
+MY.TargetAnnexName = "my-annex"
+MY.WantFlocking    = true
+MY.WantGlidein     = true
+requirements       = (Target.AnnexName == "my-annex")
+```
+
+CHTC's APs restrict where a job may run according to these flags: with neither, CHTC's own pool;
+with `WantFlocking` only, machines whose names end in `.wisc.edu`; with `WantGlidein` only, CHTC
+or the OSPool. Setting both adds no restriction, which an annex EP outside `wisc.edu` needs, and
+the `requirements` line then keeps the jobs on your annex.
+
+**GPU jobs.** CHTC's APs give any job that sets `request_gpus` GPU Lab concurrency limits, and the
+schedd will not start a job with concurrency limits on an annex. After submitting, clear them for
+the whole cluster:
+
+```
+condor_qedit <cluster> ConcurrencyLimits undefined
+```
+
+Then create the annex, without naming a target machine, which writes `annex-my-annex.tar` to the
+current directory:
+
+```
+htcondor annex create --idle-time 3600 my-annex
+```
+
+The annex is yours alone: only jobs you submit run on it.
+
+**Run the EP.** On the EP host you need the tarball, as written (don't rename it), and
+`ep/run-ep.sh` from this repository; no bundle and no Tailscale:
+
+```
+scp ap2001.chtc.wisc.edu:annex-my-annex.tar .
+./run-ep.sh annex-my-annex.tar          # --config works as in 3. Run an EP
+```
+
+To run the EP in Docker, put `ep/docker-ep.sh` next to `run-ep.sh` and run
+`./docker-ep.sh annex-my-annex.tar` instead. The EP's work directory, with its logs, is created
+next to the tarball.
+
+The tarball contains the annex's token: **treat it like a password**. It can be used for any number
+of EP hosts until the token expires (the CHTC AP's `ANNEX_TOKEN_LIFETIME`).
+
+On the CHTC AP, `htcondor annex status my-annex` shows the EP once it has connected.
+
+## Tailnet access: keys and policy
+
+**Auth keys.** For EPs, generate keys that are:
+
+- **Ephemeral**: EP nodes are removed from the tailnet when `run-ep.sh` exits (it logs out), or
+  30–60 minutes after a crash.
+- **Reusable**, if you want one key for several EPs.
+- **Pre-approved**, if your tailnet requires device approval.
+- **Tagged** `tag:htcondor-ep` (recommended), so EPs are owned by the tag rather than by you and
+  your tailnet policy can limit them to the AP (below).
+
+An auth key expires after the number of days you choose (1–90). Revoke it on the Keys page when
+you no longer need it. Revoking a key does not disconnect EPs already running with it; stop those
+EPs, or remove them on the Machines page.
+
+**Policy.** If your tailnet still has the default allow-all rule, EPs can reach the AP (and
+everything else) without changes; you only need the `tagOwners` entry below to create tagged
+keys. To let tagged EPs reach only the AP's port 9618, add this to your
+[tailnet policy file](https://login.tailscale.com/admin/acls/file), replacing the address with
+your AP's (`tailscale ip -4` on the AP host):
+
+```jsonc
+{
+  "tagOwners": {
+    "tag:htcondor-ep": ["autogroup:admin"]
+  },
+  "hosts": {
+    "htcondor-ap": "100.71.206.56"
+  },
+  "grants": [
+    // EPs open every connection to the AP (the AP calls back through them), so
+    // this one rule is all they need.
+    { "src": ["tag:htcondor-ep"], "dst": ["htcondor-ap"], "ip": ["tcp:9618"] }
+  ],
+  "tests": [
+    { "src": "tag:htcondor-ep", "accept": ["htcondor-ap:9618"], "deny": ["htcondor-ap:22"] }
+  ]
+}
+```
+
+Merge these into your existing sections rather than replacing them. The `tests` entry makes the
+policy editor reject a policy that doesn't allow EPs to reach the AP, or allows them more than port
+9618; its `deny` check fails (and the editor refuses to save) while an allow-all rule is still
+present, so remove that rule or drop the `deny` line.
+
+## Stopping and cleaning up
+
+- **AP**: Ctrl-C, or `docker stop personal-htcondor-ap` for a Docker AP. The job queue is kept for
+  the next start. `tailscale serve` keeps forwarding port 9618 (to nothing) until you turn it off
+  with `tailscale serve --tcp=9618 off`.
+- **EP**: Ctrl-C or SIGTERM; it also exits on its own after an hour without jobs. Each run leaves a
+  `work-<hostname>-<pid>/` directory next to the annex tarball (in `htc-ep/` for your own AP),
+  with its logs and a copy of the HTCondor tarball; delete old ones when you no longer need the
+  logs.
+
+## Troubleshooting
+
+- **`install.sh`: unsupported Linux distribution**: use `ap/docker.sh install` instead.
+- **`tailscale serve` failed / Access denied**: run `sudo tailscale set --operator=$USER` on the
+  AP host once.
+- **`run-ep.sh`: cannot reach the AP**: check that the AP is running, and that your tailnet policy
+  lets the EP's tag reach the AP on port 9618.
+- **`run-ep.sh`: annex setup failed / Unrecognized linux distro**: HTCondor has no EP build for
+  that host.
+- **Job stays idle**: `condor_status` should list the EP. Check the job's `Arch` requirement (see
+  above), and `condor_q -better-analyze <job id>`.
+
+## How it works
+
+See [`notes.md`](notes.md) for the configuration details, and
+[`backlog/decisions/`](backlog/decisions/) for why the network is set up this way.

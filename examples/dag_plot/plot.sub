@@ -10,7 +10,7 @@ log                     = log/plot.log
 output                  = log/plot.out
 error                   = log/plot.err
 
-should_transfer_files   = Yes 
+should_transfer_files   = Yes
 when_to_transfer_output = ON_EXIT
 
 # Transfer the outputs of the previous stage into the input of this job

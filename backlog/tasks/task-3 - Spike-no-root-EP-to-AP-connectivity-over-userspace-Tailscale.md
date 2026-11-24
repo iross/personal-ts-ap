@@ -10,10 +10,10 @@ labels:
   - networking
 dependencies: []
 references:
-  - 'https://tailscale.com/kb/1112/userspace-networking'
-  - 'https://htcondor.readthedocs.io/en/latest/admin-manual/networking.html'
-  - >-
-    https://github.com/htcondor/htcondor/blob/v25.15.15/src/condor_utils/condor_sockaddr.cpp
+  - https://tailscale.com/kb/1112/userspace-networking
+  - https://htcondor.readthedocs.io/en/latest/admin-manual/networking.html
+  - https://github.com/htcondor/htcondor/blob/v25.15.15/src/condor_utils/condor_sockaddr.cpp
+  - https://app.todoist.com/app/task/6j3gCvMMxjMp278v
 priority: high
 ordinal: 3000
 ---
