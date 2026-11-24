@@ -119,7 +119,10 @@ stop_htcondor() {
 
 cleanup() {
     local status=$?
-    trap - EXIT INT TERM
+    trap - EXIT INT TERM HUP
+    # Best effort from here: after a hangup, even logging to the terminal
+    # fails, and that must not stop the cleanup.
+    set +e
     stop_htcondor
     [ -n "${FORWARDER_PID:-}" ] && kill "$FORWARDER_PID" 2>/dev/null || true
     if [ -n "${TAILSCALED_PID:-}" ]; then
@@ -239,6 +242,9 @@ mkdir -p "$WORK"
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+# A closed terminal or dropped SSH session; without this, HTCondor (in its
+# own session) would keep running with no one to stop it.
+trap 'exit 129' HUP
 
 prepare_annex
 join_tailnet
